@@ -1,0 +1,14 @@
+{
+  "namespace": "_",
+  "name": "test",
+  "annotations": [
+    {
+      "key": "somekey",
+      "value": "somevalue"
+    }
+  ],
+  "exec": {
+    "kind": "nodejs:default",
+    "code": $actioncode
+  }
+}
