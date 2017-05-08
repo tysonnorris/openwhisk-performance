@@ -27,7 +27,7 @@ See http://docs.locust.io/en/latest/installation.html for more details
 * 4 (action source code file)
 
 ## locustfile.py ENV vars
-* TEST_ACTION - action to be used for test run
+* TEST_ACTIONS - actions to be used for test run
 * TEST_USERNAME - username to be used for test run
 * TEST_PASSWORD - password to be used for test run
 
@@ -50,5 +50,5 @@ Running is a 2 step processes on new systems:
 
 ```
 ./create.sh https://192.168.99.100 "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP" locustNoop ./actions/noop.js
-TEST_ACTION=locustTroughputNoop TEST_USERNAME=23bc46b1-71f6-4ed5-8c54-816aa4f8c502 TEST_PASSWORD=123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP locust --host=https://192.168.99.100 --no-web  --clients=10 --hatch-rate=2 --num-request=2000
+TEST_ACTIONS=locustNoop,locustAsyncNoop,locustAsyncNoopFast TEST_USERNAME=23bc46b1-71f6-4ed5-8c54-816aa4f8c502 TEST_PASSWORD=123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP locust --host=https://192.168.99.100 --no-web  --clients=10 --hatch-rate=2 --num-request=2000
 ```
