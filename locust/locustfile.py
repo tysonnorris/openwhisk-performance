@@ -24,7 +24,11 @@ class ThroughputTaskSet(TaskSet):
 
   @task
   def invoke(self):
-    self.client.post('/api/v1/namespaces/_/actions/{}?blocking=true'.format(action), auth=creds, verify=False)
+    with self.client.post('/api/v1/namespaces/_/actions/{}?blocking=true'.format(action), auth=creds, verify=False, catch_response=True) as response:
+      if response.status_code != 200:
+        print "got non-200 response %d" % response.status_code
+      #   response.failure("expected 200, but got " + str(response.status_code))
+      #
 
 class WebsiteUser(HttpLocust):
   task_set = ThroughputTaskSet
