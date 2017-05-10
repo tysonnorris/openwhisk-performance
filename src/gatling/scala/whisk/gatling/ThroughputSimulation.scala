@@ -1,6 +1,7 @@
 package whisk.gatling
 
 import java.io.InputStream
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.config.ConfigFactory
@@ -50,12 +51,19 @@ class ThroughputSimulation extends Simulation {
   val username = conf.getString("whisk.perftest.username")
   val pwd = conf.getString("whisk.perftest.pwd")
 
+  val httpInitConf = http.baseURL("https://192.168.99.100")
   val httpConf = http.baseURL(host)
 
   //Actions!
   object SetupAllActions {
 
-    val setupComplete = new AtomicBoolean(false) //tracks when last item setup is complete
+    val setupComplete = new AtomicBoolean(true) //tracks when last item setup is complete
+
+    //TODO: it's not clear how to determine the rev id of the action...
+    //controller is hacked to dump to logs, so invoke one to get the rev id:
+    //curl -k -u "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"  -X POST https://192.168.99.100/api/v/namespaces/_/actions/gatlingThroughputAsyncNoop?blocking=true
+
+    var revId = "1-6c2eb9c0399496ca8cb3826593802f4e"
 
     //currently deletes tolerate action already exists (200) or does not exist(404)
 
@@ -94,8 +102,11 @@ class ThroughputSimulation extends Simulation {
             .post(s"/api/v1/namespaces/_/actions/${action}?blocking=true".toString())
             .basicAuth("23bc46b1-71f6-4ed5-8c54-816aa4f8c502",
               "123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP")
+            .check(bodyString.saveAs("body"))
             .check(status.in(200)))
             .exec(session => {
+              println("body: "+ session.get("body").as[String])
+//              revId = session.get("revId").as[String]
               //if this is the last config, set the completion flag
               if (actionConfig == actionConfigNames.last) {
                 setupComplete.set(true)
@@ -107,6 +118,7 @@ class ThroughputSimulation extends Simulation {
     }
   }
 
+  val starttime = Instant.now.getEpochSecond
 
   object SingleAction {
     def action(actionConfig: String) = {
@@ -116,10 +128,19 @@ class ThroughputSimulation extends Simulation {
         println("waiting for setup to complete...")
         pause(10 seconds) //looping will occur, so try to set this pause to the time it takes for init to complete...
       }
+        .exec{ session =>
+//          val counter = session("counter").as[Int]
+//          val idLong = s"${starttime}${session.userId}${counter}".toLong
+//          val id = f"${idLong}%032d"
+          val id = java.util.UUID.randomUUID.toString
+          val trimmed = id.substring(id.length-32, id.length)
+//          println("id: "+ trimmed)
+          session.set("activationId", trimmed).set("revId", SetupAllActions.revId)
+
+        }
         .exec(http(s"run action ${action} in loop")
-          .post(s"/api/v1/namespaces/_/actions/${action}?blocking=true"
-            .toString())
-          .basicAuth(username, pwd)
+          .post("/invoke")
+          .body(ElFileBody("activation.json")).asJSON
           .check(status.in(200)))
         .pause(200 milliseconds, 500 milliseconds)
     }
@@ -127,17 +148,18 @@ class ThroughputSimulation extends Simulation {
 
   //setup scenarios + populations
   val initScenario = scenario("delete then create").exec(SetupAllActions.deleteAndCreate.iterator)
-  val initPopulationBuilder = initScenario.inject(atOnceUsers(1))
+  val initPopulationBuilder = initScenario.inject(atOnceUsers(1)).protocols(httpInitConf)
   val loopedPopulationBuilders: List[PopulationBuilder] =
     actionConfigNames.map(actionConfig => {
       scenario(s"loop ${actionConfig}")
-        .repeat(loopCount) {
+        .repeat(loopCount, "counter") {
           exec(SingleAction.action(actionConfig))
-        }.inject(atOnceUsers(loopUserCount))
+        }.inject(atOnceUsers(loopUserCount)).protocols(httpConf)
     })
 
   setUp(
     //merge the init population and looped populations
-    initPopulationBuilder +: loopedPopulationBuilders: _*
-  ).protocols(httpConf)
+    //initPopulationBuilder +: loopedPopulationBuilders: _*
+    loopedPopulationBuilders: _*
+  )
 }

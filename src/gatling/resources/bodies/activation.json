@@ -1,0 +1,26 @@
+{
+  "activationId": "${activationId}",
+  "revision": "${revId}",
+  "activationNamespace": "guest",
+  "transid": [
+    5,
+    1494452406893
+  ],
+  "content": {},
+  "action": {
+    "path": "guest",
+    "name": "gatlingThroughputAsyncNoop",
+    "version": "0.0.1"
+  },
+  "user": {
+    "subject": "guest",
+    "namespace": "guest",
+    "authkey": "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP",
+    "rights": [
+      "READ",
+      "PUT",
+      "DELETE",
+      "ACTIVATE"
+    ]
+  }
+}
