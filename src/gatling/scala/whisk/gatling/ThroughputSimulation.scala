@@ -129,13 +129,18 @@ class ThroughputSimulation extends Simulation {
         pause(10 seconds) //looping will occur, so try to set this pause to the time it takes for init to complete...
       }
         .exec{ session =>
-//          val counter = session("counter").as[Int]
-//          val idLong = s"${starttime}${session.userId}${counter}".toLong
+          val counter = session("counter").as[Int]
+          val transId = s"${session.userId}${counter}".toLong
 //          val id = f"${idLong}%032d"
           val id = java.util.UUID.randomUUID.toString
           val trimmed = id.substring(id.length-32, id.length)
 //          println("id: "+ trimmed)
-          session.set("activationId", trimmed).set("revId", SetupAllActions.revId)
+          val transStart = Instant.now().toEpochMilli
+
+          session.set("activationId", trimmed)
+            .set("revId", SetupAllActions.revId)
+            .set("transId", transId)
+            .set("transStart", transStart)
 
         }
         .exec(http(s"run action ${action} in loop")

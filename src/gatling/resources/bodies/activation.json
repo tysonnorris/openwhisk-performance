@@ -3,8 +3,8 @@
   "revision": "${revId}",
   "activationNamespace": "guest",
   "transid": [
-    5,
-    1494452406893
+    ${transId},
+    ${transStart}
   ],
   "content": {},
   "action": {
