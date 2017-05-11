@@ -13,6 +13,8 @@ git clone --depth 1 https://github.com/openwhisk/openwhisk.git
 # install ansible
 pip install --user ansible==2.1.2.0
 
+pip install --user docker-py
+
 cd openwhisk/ansible
 LIMITS='{"limits":{"actions":{"invokes":{"perMinute":999999,"concurrent":999999,"concurrentInSystem":999999}},"triggers":{"fires":{"perMinute":999999}}}}'
 ANSIBLE_CMD="ansible-playbook -i environments/local -e docker_image_prefix=openwhisk -e docker_registry=docker.io/ -e $LIMITS"
