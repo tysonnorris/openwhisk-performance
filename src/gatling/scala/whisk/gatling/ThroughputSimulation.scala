@@ -128,24 +128,23 @@ class ThroughputSimulation extends Simulation {
         println("waiting for setup to complete...")
         pause(10 seconds) //looping will occur, so try to set this pause to the time it takes for init to complete...
       }
-        .exec{ session =>
-          val counter = session("counter").as[Int]
-          val transId = s"${session.userId}${counter}".toLong
-//          val id = f"${idLong}%032d"
-          val id = java.util.UUID.randomUUID.toString
-          val trimmed = id.substring(id.length-32, id.length)
-//          println("id: "+ trimmed)
-          val transStart = Instant.now().toEpochMilli
-
-          session.set("activationId", trimmed)
-            .set("revId", SetupAllActions.revId)
-            .set("transId", transId)
-            .set("transStart", transStart)
-
-        }
+//        .exec{ session =>
+//          val counter = session("counter").as[Int]
+//          val transId = s"${session.userId}${counter}".toLong
+////          val id = f"${idLong}%032d"
+//          val id = java.util.UUID.randomUUID.toString
+//          val trimmed = id.substring(id.length-32, id.length)
+////          println("id: "+ trimmed)
+//          val transStart = Instant.now().toEpochMilli
+//
+//          session.set("activationId", trimmed)
+//            .set("revId", SetupAllActions.revId)
+//            .set("transId", transId)
+//            .set("transStart", transStart)
+//
+//        }
         .exec(http(s"run action ${action} in loop")
-          .post("/invoke")
-          .body(ElFileBody("activation.json")).asJSON
+          .post("/run")
           .check(status.in(200)))
         .pause(200 milliseconds, 500 milliseconds)
     }
