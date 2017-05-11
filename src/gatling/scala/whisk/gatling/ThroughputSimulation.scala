@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.config.ConfigFactory
 import io.gatling.core.Predef._
+import io.gatling.core.session.StaticStringExpression
 import io.gatling.core.structure.{ChainBuilder, PopulationBuilder}
 import io.gatling.http.Predef._
 import spray.json.{JsString, _}
@@ -13,7 +14,6 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
-
 
 /**
   * A Simulation impl that will:
@@ -50,94 +50,88 @@ class ThroughputSimulation extends Simulation {
   val username = conf.getString("whisk.perftest.username")
   val pwd = conf.getString("whisk.perftest.pwd")
 
-  val httpConf = http.baseURL(host)
+  val httpConf = http.baseURL(host).basicAuth(username, pwd)
 
-  //Actions!
-  object SetupAllActions {
-
+  object SingleAction {
     val setupComplete = new AtomicBoolean(false) //tracks when last item setup is complete
 
     //currently deletes tolerate action already exists (200) or does not exist(404)
-
-    val deleteAndCreate: List[ChainBuilder] = {
-      for (actionConfig <- actionConfigNames)
-        yield {
-          //setup vals
-          println(s"setting up action ${actionConfig}")
-          val action = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-name")
-          val actionTemplateFile = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-template-file")
-          val actionCodeFile = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-code-file")
-          val stream: InputStream = getClass.getResourceAsStream("/" + actionCodeFile)
-          val fileContents = Source.fromInputStream(stream).mkString
-          println(" with function code: ")
-          println("---------------------------------------------")
-          println(fileContents)
-          println("---------------------------------------------")
-          val escapedContents = CompactPrinter(JsString(fileContents))
+    def setupAction(actionConfig: String) = {
+      //setup vals
+      println(s"setting up action ${actionConfig}")
+      val action = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-name")
+      val actionTemplateFile = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-template-file")
+      val actionCodeFile = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-code-file")
+      val stream: InputStream = getClass.getResourceAsStream("/" + actionCodeFile)
+      val fileContents = Source.fromInputStream(stream).mkString
+      println(" with function code: ")
+      println("---------------------------------------------")
+      println(fileContents)
+      println("---------------------------------------------")
+      val escapedContents = CompactPrinter(JsString(fileContents))
 
 
-          //delete old action
-          exec(http("delete action") // Here's an example of a POST request
-            .delete(s"/api/v1/namespaces/_/actions/${action}".toString())
-            .basicAuth(username, pwd)
-            .check(status.in(200, 404)))
-            //create action
-            .exec(_.set("actioncode", escapedContents))
-            .exec(http("create action") // Here's an example of a POST request
-              .put(s"/api/v1/namespaces/_/actions/${action}".toString())
-              .basicAuth(username, pwd)
-              .body(ElFileBody(actionTemplateFile)).asJSON
-              .check(status.in(200)))
-            .pause(1 seconds)
-            //run the action once
-            .exec(http("run action once after create")
-            .post(s"/api/v1/namespaces/_/actions/${action}?blocking=true".toString())
-            .basicAuth("23bc46b1-71f6-4ed5-8c54-816aa4f8c502",
-              "123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP")
-            .check(status.in(200)))
-            .exec(session => {
-              //if this is the last config, set the completion flag
-              if (actionConfig == actionConfigNames.last) {
-                setupComplete.set(true)
-                println("setup is complete!")
-              }
-              session
-            })
-        }
+      //delete old action
+      exec(http("delete action") // Here's an example of a POST request
+        .delete(StaticStringExpression(s"/api/v1/namespaces/_/actions/${action}"))
+        .check(status.in(200, 404)))
+        //create action
+        .exec(_.set("actioncode", escapedContents))
+        .exec(http("create action") // Here's an example of a POST request
+          .put(StaticStringExpression(s"/api/v1/namespaces/_/actions/${action}"))
+          .body(ElFileBody(actionTemplateFile)).asJSON
+          .check(status.in(200)))
+        //run the action once
+        .exec(http(StaticStringExpression("run action once after create"))
+        .post(StaticStringExpression(s"/api/v1/namespaces/_/actions/${action}?blocking=true"))
+        .check(status.in(200)))
+        .exec(session => {
+          //if this is the last config, set the completion flag
+          if (actionConfig == actionConfigNames.last) {
+            setupComplete.set(true)
+            println("setup is complete!")
+          }
+          session
+        })
     }
-  }
 
 
-  object SingleAction {
-    def action(actionConfig: String) = {
+    def invokeAction(actionConfig: String) = {
       val action = conf.getString("whisk.perftest.action-configs." + actionConfig + ".action-name")
       //only proceed once action was created...
-      doIf(session => !SetupAllActions.setupComplete.get()) {
+      doIf(session => !SingleAction.setupComplete.get()) {
         println("waiting for setup to complete...")
         pause(10 seconds) //looping will occur, so try to set this pause to the time it takes for init to complete...
       }
         .exec(http(s"run action ${action} in loop")
-          .post(s"/api/v1/namespaces/_/actions/${action}?blocking=true"
-            .toString())
-          .basicAuth(username, pwd)
+          .post(StaticStringExpression(s"/api/v1/namespaces/_/actions/${action}?blocking=true"))
           .check(status.in(200)))
-        .pause(200 milliseconds, 500 milliseconds)
     }
   }
 
-  //setup scenarios + populations
-  val initScenario = scenario("delete then create").exec(SetupAllActions.deleteAndCreate.iterator)
-  val initPopulationBuilder = initScenario.inject(atOnceUsers(1))
-  val loopedPopulationBuilders: List[PopulationBuilder] =
-    actionConfigNames.map(actionConfig => {
+  val populationBuilders: List[PopulationBuilder] = {
+    val setup = actionConfigNames.map(actionConfig => {
+      scenario(s"setup action ${actionConfig}")
+        .exec(SingleAction.setupAction(actionConfig))
+        .inject(atOnceUsers(1))
+    })
+
+    val invoke = actionConfigNames.map(actionConfig => {
+      scenario(s"setup action ${actionConfig}")
+        .repeat(loopCount) {
+          exec(SingleAction.setupAction(actionConfig))
+        }.inject(atOnceUsers(1))
       scenario(s"loop ${actionConfig}")
         .repeat(loopCount) {
-          exec(SingleAction.action(actionConfig))
+          exec(SingleAction.invokeAction(actionConfig))
         }.inject(atOnceUsers(loopUserCount))
     })
 
+    //merge the setup and invoke population builders
+    setup ::: invoke
+  }
+
   setUp(
-    //merge the init population and looped populations
-    initPopulationBuilder +: loopedPopulationBuilders: _*
+    populationBuilders: _*
   ).protocols(httpConf)
 }
