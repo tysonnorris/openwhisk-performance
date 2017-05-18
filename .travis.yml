@@ -12,6 +12,6 @@ install:
 script:
   - ./tests/latency.sh "http://172.17.0.1:10001" "$(cat openwhisk/ansible/files/auth.guest)"
   - ./tests/throughput.sh "http://172.17.0.1:10001" "$(cat openwhisk/ansible/files/auth.guest)" 4
-  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=250 -Dwhisk.perftest.run.loop-user-count=4
-  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=50 -Dwhisk.perftest.run.loop-user-count=20
-  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=25 -Dwhisk.perftest.run.loop-user-count=40
+  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=100 -Dwhisk.perftest.run.loop-user-count=4
+  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=20 -Dwhisk.perftest.run.loop-user-count=20
+  - ./gradlew gatlingRun -Dwhisk.perftest.baseurl="http://172.17.0.1:10001" -Dgatling.data.writers.0=file -Dwhisk.perftest.run.loop-count=20 -Dwhisk.perftest.run.loop-user-count=40

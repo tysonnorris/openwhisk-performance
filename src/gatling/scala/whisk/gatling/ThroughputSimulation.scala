@@ -11,6 +11,7 @@ import io.gatling.http.Predef._
 import spray.json.{JsString, _}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
@@ -110,25 +111,19 @@ class ThroughputSimulation extends Simulation {
   }
 
   val populationBuilders: List[PopulationBuilder] = {
-    val setup = actionConfigNames.map(actionConfig => {
-      scenario(s"setup action ${actionConfig}")
+    val builders = new ListBuffer[PopulationBuilder]()
+
+    actionConfigNames.map(actionConfig => {
+      builders += scenario(s"setup action ${actionConfig}")
         .exec(SingleAction.setupAction(actionConfig))
         .inject(atOnceUsers(1))
-    })
 
-    val invoke = actionConfigNames.map(actionConfig => {
-      scenario(s"setup action ${actionConfig}")
-        .repeat(loopCount) {
-          exec(SingleAction.setupAction(actionConfig))
-        }.inject(atOnceUsers(1))
-      scenario(s"loop ${actionConfig}")
+      builders += scenario(s"loop ${actionConfig}")
         .repeat(loopCount) {
           exec(SingleAction.invokeAction(actionConfig))
         }.inject(atOnceUsers(loopUserCount))
     })
-
-    //merge the setup and invoke population builders
-    setup ::: invoke
+    builders.toList
   }
 
   setUp(
